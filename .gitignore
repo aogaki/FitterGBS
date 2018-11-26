@@ -1,0 +1,11 @@
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.pcm
+*.so
+*.d
+*~
+GBSFit
+MyDict.cxx
+compile_commands.json
