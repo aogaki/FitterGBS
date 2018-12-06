@@ -1,6 +1,19 @@
 #include <iostream>
+#include <time.h>
+
+#include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/builder/stream/helpers.hpp>
+#include <bsoncxx/json.hpp>
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
+#include <mongocxx/stdx.hpp>
+#include <mongocxx/uri.hpp>
+
+using bsoncxx::builder::stream::document;
+using bsoncxx::builder::stream::finalize;
 
 #include <TStyle.h>
+#include <TString.h>
 
 #include "TUserInterface.hpp"
 
@@ -37,7 +50,9 @@ Double_t fitFnc(Double_t *pos, Double_t *par)
 }
 
 TUserInterface::TUserInterface()
-    : TGMainFrame(gClient->GetRoot(), 1100, 800), fHis(nullptr)
+    : TGMainFrame(gClient->GetRoot(), 1100, 800),
+      fHis(nullptr),
+      fSliderFac(1000)
 {
   fGaussian = new TF1("Gaussian", "gaus");
   fGaussian->SetLineColor(kGreen);
@@ -51,6 +66,8 @@ TUserInterface::TUserInterface()
 
   fFitFnc =
       new TF1("FitFnc", fitFnc, fMean - 5 * fSigma, fMean + 5 * fSigma, 7);
+  fFitFnc->SetParName(1, "#it{#mu}");
+  fFitFnc->SetParName(2, "#it{#sigma}");
 
   char buf[32];
   SetCleanup(kDeepCleanup);
@@ -67,14 +84,15 @@ TUserInterface::TUserInterface()
                                 "TUserInterface", this, "CanvasEvent()");
 
   fHframe1 = new TGHorizontalFrame(this, 0, 0, 0);
-  fHslider1 = new TGTripleHSlider(fHframe1, 800, kDoubleScaleBoth, HSId1,
+  fVFrame = new TGVerticalFrame(this, 0, 0, 0);
+  fHslider1 = new TGTripleHSlider(fVFrame, 800, kDoubleScaleBoth, HSId1,
                                   kHorizontalFrame, GetDefaultFrameBackground(),
                                   kFALSE, kFALSE, kFALSE, kFALSE);
   fHslider1->Connect("PointerPositionChanged()", "TUserInterface", this,
                      "DoSlider()");
   fHslider1->Connect("PositionChanged()", "TUserInterface", this, "DoSlider()");
   fHslider1->SetRange(0.0, 500.0);
-  fHframe1->Resize(800, 25);
+  // fVFrame->Resize(800, 25);
 
   fHframe2 = new TGHorizontalFrame(this, 0, 0, 0);
   fHframe2->SetName("Hframe2");
@@ -103,18 +121,20 @@ TUserInterface::TUserInterface()
                      new TGLayoutHints(kLHintsLeft | kLHintsTop, 2, 2, 2, 2));
 
   fSigmaSlider =
-      new TGHSlider(fHframe2, 134, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
+      new TGHSlider(fVFrame, 134, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
   fSigmaSlider->SetName("SigmaSlider");
   fSigmaSlider->Connect("PositionChanged(Int_t)", "TUserInterface", this,
                         "DoSigmaSlider()");
-  fHframe2->AddFrame(fSigmaSlider, new TGLayoutHints(kLHintsNormal));
+  fVFrame->AddFrame(fSigmaSlider,
+                    new TGLayoutHints(kLHintsExpandX | kLHintsNormal));
 
   fMeanSlider =
-      new TGHSlider(fHframe2, 134, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
+      new TGHSlider(fVFrame, 134, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
   fMeanSlider->SetName("MeanSlider");
   fMeanSlider->Connect("PositionChanged(Int_t)", "TUserInterface", this,
                        "DoMeanSlider()");
-  fHframe2->AddFrame(fMeanSlider, new TGLayoutHints(kLHintsNormal));
+  fVFrame->AddFrame(fMeanSlider,
+                    new TGLayoutHints(kLHintsExpandX | kLHintsNormal));
 
   fFitButton =
       new TGTextButton(fHframe2, "Fit", -1, TGTextButton::GetDefaultGC()(),
@@ -140,13 +160,16 @@ TUserInterface::TUserInterface()
   //
   // fHframe0->AddFrame(fCheck1, fBfly2);
   // fHframe0->AddFrame(fCheck2, fBfly2);
-  fHframe1->AddFrame(fHslider1, fBly);
+  fVFrame->AddFrame(fHslider1, fBly);
+  fVFrame->AddFrame(fMeanSlider, new TGLayoutHints(kLHintsNormal));
+  fVFrame->AddFrame(fSigmaSlider, new TGLayoutHints(kLHintsNormal));
   // fHframe2->AddFrame(fTeh1, fBfly2);
   // fHframe2->AddFrame(fTeh2, fBfly1);
   // fHframe2->AddFrame(fTeh3, fBfly3);
   //
   // AddFrame(fHframe0, fBly);
-  AddFrame(fHframe1, fBly);
+  // AddFrame(fVFrame, fBly);
+  AddFrame(fVFrame, new TGLayoutHints(kLHintsNormal));
   AddFrame(fHframe2,
            new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 1, 1, 1, 1));
   // AddFrame(fHframe2, fBly);
@@ -187,6 +210,10 @@ TUserInterface::~TUserInterface()
   // Clean up
 
   Cleanup();
+
+  delete fGaussian;
+  delete fBackground;
+  delete fFitFnc;
 }
 
 //______________________________________________________________________________
@@ -272,12 +299,12 @@ void TUserInterface::CanvasEvent()
         fPeakSlider->SetPosition(0);
         fRightSlider->SetRange(0, fPeak);
         fRightSlider->SetPosition(fPeak - fRightVal);
-        fSigmaSlider->SetRange(0, fHis->GetRMS() * 100);
-        fSigmaSlider->SetPosition(fSigma * 100);
+        fSigmaSlider->SetRange(0, fHis->GetRMS() * fSliderFac);
+        fSigmaSlider->SetPosition(fSigma * fSliderFac);
         fMeanSlider->SetRange(
-            fHis->GetXaxis()->GetBinCenter(1) * 100,
-            fHis->GetXaxis()->GetBinCenter(fHis->GetNbinsX()) * 100);
-        fMeanSlider->SetPosition(fMean * 100);
+            fHis->GetXaxis()->GetBinCenter(1) * fSliderFac,
+            fHis->GetXaxis()->GetBinCenter(fHis->GetNbinsX()) * fSliderFac);
+        fMeanSlider->SetPosition(fMean * fSliderFac);
       }
     }
   }
@@ -323,7 +350,7 @@ void TUserInterface::DoRightSlider()
 void TUserInterface::DoSigmaSlider()
 {
   auto pos = fSigmaSlider->GetPosition();
-  fSigma = pos / 100.;
+  fSigma = pos / fSliderFac;
   std::cout << "Sigma" << std::endl;
   UpdateGraph();
 }
@@ -331,7 +358,7 @@ void TUserInterface::DoSigmaSlider()
 void TUserInterface::DoMeanSlider()
 {
   auto pos = fMeanSlider->GetPosition();
-  fMean = pos / 100.;
+  fMean = pos / fSliderFac;
   std::cout << "Mean" << std::endl;
   UpdateGraph();
 }
@@ -350,10 +377,10 @@ void TUserInterface::DoFit()
     fPeakSlider->SetPosition(fPeakSlider->GetMaxPosition() - fPeak);
 
     fMean = fFitFnc->GetParameter(1);
-    fMeanSlider->SetPosition(fMean);
+    fMeanSlider->SetPosition(fMean * fSliderFac);
 
     fSigma = fFitFnc->GetParameter(2);
-    fSigmaSlider->SetPosition(fSigma * 100);
+    fSigmaSlider->SetPosition(fSigma * fSliderFac);
 
     fLeftVal = fFitFnc->GetParameter(3);
     fLeftSlider->SetPosition(fLeftSlider->GetMaxPosition() - fLeftVal);
@@ -378,11 +405,39 @@ void TUserInterface::DoFit()
 
 void TUserInterface::DoUpload()
 {
-  // Connect to Mongo DB
-  // Upload
   auto FWHM = fSigma * 2 * sqrt(2 * log(2));
   std::cout << "Mean: " << fMean << "\n"
             << "FWHM: " << FWHM << std::endl;
+
+  // Do image save
+  auto fileName = TString(Form("fit-%ld.jpg", time(nullptr)));
+  auto fullPath = "/home/aogaki/Study/MEAN/image-upload-04-finished/backend/images/" + fileName;
+  fCanvas->GetCanvas()->Print(fullPath, "jpg");
+
+  // Connect to Mongo DB
+  mongocxx::instance *inst{};
+  mongocxx::client conn{mongocxx::uri{"mongodb://localhost/node-angular?retryWrites=true"}};
+  //mongocxx::client conn{mongocxx::uri{}};
+
+  auto collection = conn["node-angular"]["posts"];
+
+  bsoncxx::builder::stream::document buf{};
+  buf << "title" << Form("%2.5f", fMean) << "content" << Form("%2.5f", FWHM)
+      << "imagePath"
+      << Form("http://192.168.161.73:3000/images/%s", fileName.Data());
+  collection.insert_one(buf.view());
+  buf.clear();
+
+  auto cursor = collection.find({});
+  for (auto &&doc : cursor) {
+    std::cout << bsoncxx::to_json(doc) << std::endl;
+  }
+
+  // Quick hack
+  // mongocxx::instance can be zombie
+  // I need to do new and delete in this function.
+  // Have to think what is happen!!!!!!!!!!!!
+  delete inst;
 }
 
 void TUserInterface::UpdateGraph()

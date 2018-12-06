@@ -12,12 +12,22 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Searching ROOT. FindROOT.cmake was copied from ROOT source
 include(FindROOT.cmake)
 
+# For MongoDB
+find_package(libmongocxx REQUIRED)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    find_package(Boost 1.56.0 REQUIRED)
+    target_include_directories(hello_mongocxx
+      PRIVATE ${Boost_INCLUDE_DIRS}
+    )
+endif()
+
 #----------------------------------------------------------------------------
 # Locate sources and headers for this project
 # NB: headers are included so they will show up in IDEs
 #
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include
-                    ${ROOT_INCLUDE_DIR})
+                    ${ROOT_INCLUDE_DIR}
+                    ${LIBMONGOCXX_INCLUDE_DIRS})
 link_directories(${ROOT_LIBRARY_DIR})
 file(GLOB sources ${PROJECT_SOURCE_DIR}/src/*.cpp)
 file(GLOB headers ${PROJECT_SOURCE_DIR}/include/*.hpp)
@@ -30,7 +40,7 @@ ROOT_GENERATE_DICTIONARY("${headers}" "${MY_LINKDEF}" "${MY_DICTIONARY}" "${INCL
 # Generating executable file and linking
 #
 add_executable(GBSFit main.cpp MyDict.cxx ${sources} ${headers})
-target_link_libraries(GBSFit ${ROOT_LIBRARIES})
+target_link_libraries(GBSFit ${ROOT_LIBRARIES} ${LIBMONGOCXX_LIBRARIES})
 
 #----------------------------------------------------------------------------
 # Install the executable to 'bin' directory under CMAKE_INSTALL_PREFIX

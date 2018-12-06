@@ -64,6 +64,8 @@ class TUserInterface : public TGMainFrame
   TGTextBuffer *fTbh1, *fTbh2, *fTbh3;
   TGCheckButton *fCheck1, *fCheck2;
 
+  TGVerticalFrame *fVFrame;
+
   TGVSlider *fLeftSlider;
   TGVSlider *fRightSlider;
   TGVSlider *fPeakSlider;
@@ -83,6 +85,8 @@ class TUserInterface : public TGMainFrame
   Double_t fMean;
   Double_t fLeftVal;
   Double_t fRightVal;
+
+  Double_t fSliderFac;
 };
 
 #endif
