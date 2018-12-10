@@ -9,6 +9,7 @@
 #include "TF1.h"
 #include "TGButton.h"
 #include "TGLayout.h"
+#include "TGMenu.h"
 #include "TGSlider.h"
 #include "TGTextEntry.h"
 #include "TGTripleSlider.h"
@@ -16,14 +17,9 @@
 #include "TMath.h"
 #include "TRootEmbeddedCanvas.h"
 
-enum ETestCommandIdentifiers {
-  HId1,
-  HId2,
-  HId3,
-  HCId1,
-  HCId2,
-
-  HSId1
+enum class MenuMessages {
+  BROWSE,
+  EXIT,
 };
 
 Double_t fitFnc(Double_t *pos, Double_t *par);
@@ -35,7 +31,6 @@ class TUserInterface : public TGMainFrame
   virtual ~TUserInterface();
 
   void CloseWindow();
-  void DoText(const char *text);
   void DoSlider();
   void HandleButtons();
 
@@ -52,18 +47,14 @@ class TUserInterface : public TGMainFrame
   void DoFit();
   void DoUpload();
 
+  void HandleMenu(Int_t menuID);
+
   ClassDef(TUserInterface, 1);
 
  private:
   TRootEmbeddedCanvas *fCanvas;
-  TGTripleHSlider *fHslider1;
-  TGLayoutHints *fLcan;
-  TGHorizontalFrame *fHframe0, *fHframe1, *fHframe2;
-  TGLayoutHints *fBly, *fBfly1, *fBfly2, *fBfly3;
-  TGTextEntry *fTeh1, *fTeh2, *fTeh3;
-  TGTextBuffer *fTbh1, *fTbh2, *fTbh3;
-  TGCheckButton *fCheck1, *fCheck2;
-
+  TGLayoutHints *fLHint;
+  TGHorizontalFrame *fHFrame;
   TGVerticalFrame *fVFrame;
 
   TGVSlider *fLeftSlider;
@@ -87,6 +78,9 @@ class TUserInterface : public TGMainFrame
   Double_t fRightVal;
 
   Double_t fSliderFac;
+
+  TGMenuBar *fMenuBar;
+  TGPopupMenu *fMenuFile;
 };
 
 #endif
