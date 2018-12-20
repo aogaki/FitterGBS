@@ -12,11 +12,7 @@
 using bsoncxx::builder::stream::document;
 using bsoncxx::builder::stream::finalize;
 
-<<<<<<< HEAD
 #include <TGLabel.h>
-=======
-#include <TBrowser.h>
->>>>>>> acbf2383c87ec7979c93a38014eaa44eb6b213c5
 #include <TString.h>
 #include <TStyle.h>
 #include <TSystem.h>
@@ -102,7 +98,6 @@ TUserInterface::TUserInterface()
                                 "TUserInterface", this, "CanvasEvent()");
 
   fHFrame = new TGHorizontalFrame(this, 0, 0, 0);
-<<<<<<< HEAD
   fHFrame->Resize(800, 25);
   fVFrame = new TGVerticalFrame(this, 0, 0, 0);
   // fVFrame->Resize(800, 25);
@@ -112,12 +107,6 @@ TUserInterface::TUserInterface()
   fHFrame->AddFrame(
       bgLabel, new TGLayoutHints(kLHintsCenterY | kLHintsLeft, 2, 2, 2, 2));
 
-=======
-  fVFrame = new TGVerticalFrame(this, 0, 0, 0);
-  fVFrame->Resize(800, 25);
-
-  fHFrame->SetName("Hframe2");
->>>>>>> acbf2383c87ec7979c93a38014eaa44eb6b213c5
   fLeftSlider =
       new TGVSlider(fHFrame, 134, kSlider1 | kScaleBoth, -1, kVerticalFrame);
   fLeftSlider->SetName("LeftSlider");
@@ -141,17 +130,6 @@ TUserInterface::TUserInterface()
                         "DoRightSlider()");
   fHFrame->AddFrame(fRightSlider,
                     new TGLayoutHints(kLHintsLeft | kLHintsTop, 2, 2, 2, 2));
-<<<<<<< HEAD
-=======
-
-  fSigmaSlider =
-      new TGHSlider(fVFrame, 800, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
-  fSigmaSlider->SetName("SigmaSlider");
-  fSigmaSlider->Connect("PositionChanged(Int_t)", "TUserInterface", this,
-                        "DoSigmaSlider()");
-  fVFrame->AddFrame(fSigmaSlider,
-                    new TGLayoutHints(kLHintsExpandX | kLHintsNormal));
->>>>>>> acbf2383c87ec7979c93a38014eaa44eb6b213c5
 
   fMeanSlider =
       new TGHSlider(fVFrame, 800, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
@@ -180,10 +158,6 @@ TUserInterface::TUserInterface()
                        TGTextButton::GetDefaultFontStruct(), kRaisedFrame);
   fFitButton->SetMargins(10, 10, 5, 5);
   fFitButton->Connect("Clicked()", "TUserInterface", this, "DoFit()");
-<<<<<<< HEAD
-=======
-  fHFrame->AddFrame(fFitButton, new TGLayoutHints(kLHintsNormal));
->>>>>>> acbf2383c87ec7979c93a38014eaa44eb6b213c5
   // fVFrame->AddFrame(fMeanSlider, new TGLayoutHints(kLHintsNormal));
   // fVFrame->AddFrame(fSigmaSlider, new TGLayoutHints(kLHintsNormal));
 
@@ -192,7 +166,6 @@ TUserInterface::TUserInterface()
                        TGTextButton::GetDefaultFontStruct(), kRaisedFrame);
   fUploadButton->SetMargins(10, 10, 5, 5);
   fUploadButton->Connect("Clicked()", "TUserInterface", this, "DoUpload()");
-<<<<<<< HEAD
 
   fHFrame->AddFrame(fUploadButton,
                     new TGLayoutHints(kLHintsBottom | kLHintsRight));
@@ -201,13 +174,6 @@ TUserInterface::TUserInterface()
 
   AddFrame(fVFrame, new TGLayoutHints(kLHintsNormal));
   AddFrame(fHFrame, new TGLayoutHints(kLHintsExpandX | kLHintsNormal));
-=======
-  fHFrame->AddFrame(fUploadButton, new TGLayoutHints(kLHintsNormal));
-
-  AddFrame(fVFrame, new TGLayoutHints(kLHintsNormal));
-  AddFrame(fHFrame,
-           new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 1, 1, 1, 1));
->>>>>>> acbf2383c87ec7979c93a38014eaa44eb6b213c5
 
   SetWindowName("Fitter for GBS");
   MapSubwindows();
@@ -219,12 +185,9 @@ TUserInterface::TUserInterface()
 TUserInterface::~TUserInterface()
 {
   // Clean up
-<<<<<<< HEAD
   Cleanup();
 
   delete fBrowser;
-=======
->>>>>>> acbf2383c87ec7979c93a38014eaa44eb6b213c5
 
   delete fGaussian;
   delete fBackground;
@@ -404,11 +367,7 @@ void TUserInterface::HandleMenu(Int_t menuID)
   MenuMessages id = static_cast<MenuMessages>(menuID);
   switch (id) {
     case MenuMessages::BROWSE:
-<<<<<<< HEAD
       fBrowser = new TBrowser();
-=======
-      new TBrowser();
->>>>>>> acbf2383c87ec7979c93a38014eaa44eb6b213c5
       break;
     case MenuMessages::EXIT:
       Cleanup();
