@@ -81,8 +81,11 @@ class TUserInterface : public TGMainFrame
 
   TGMenuBar *fMenuBar;
   TGPopupMenu *fMenuFile;
+<<<<<<< HEAD
 
   TBrowser *fBrowser;
+=======
+>>>>>>> acbf2383c87ec7979c93a38014eaa44eb6b213c5
 };
 
 #endif
