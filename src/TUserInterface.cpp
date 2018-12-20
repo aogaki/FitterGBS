@@ -1,5 +1,5 @@
-#include <iostream>
 #include <time.h>
+#include <iostream>
 
 #include <bsoncxx/builder/stream/document.hpp>
 #include <bsoncxx/builder/stream/helpers.hpp>
@@ -12,8 +12,10 @@
 using bsoncxx::builder::stream::document;
 using bsoncxx::builder::stream::finalize;
 
-#include <TStyle.h>
+#include <TGLabel.h>
 #include <TString.h>
+#include <TStyle.h>
+#include <TSystem.h>
 
 #include "TUserInterface.hpp"
 
@@ -52,7 +54,8 @@ Double_t fitFnc(Double_t *pos, Double_t *par)
 TUserInterface::TUserInterface()
     : TGMainFrame(gClient->GetRoot(), 1100, 800),
       fHis(nullptr),
-      fSliderFac(1000)
+      fSliderFac(1),
+      fBrowser(nullptr)
 {
   fGaussian = new TF1("Gaussian", "gaus");
   fGaussian->SetLineColor(kGreen);
@@ -71,145 +74,120 @@ TUserInterface::TUserInterface()
 
   char buf[32];
   SetCleanup(kDeepCleanup);
+
+  fMenuBar = new TGMenuBar(this, 800, 50, kHorizontalFrame);
+  fMenuFile = new TGPopupMenu(gClient->GetRoot());
+  fMenuFile->AddEntry("Browse", static_cast<Int_t>(MenuMessages::BROWSE));
+  fMenuFile->AddEntry("Exit", static_cast<Int_t>(MenuMessages::EXIT));
+  fMenuFile->Connect("Activated(Int_t)", "TUserInterface", this,
+                     "HandleMenu(Int_t)");
+
+  fMenuBar->AddPopup("&File", fMenuFile,
+                     new TGLayoutHints(kLHintsTop | kLHintsLeft, 0, 4, 0, 0));
+  AddFrame(fMenuBar,
+           new TGLayoutHints(kLHintsTop | kLHintsExpandX, 2, 2, 2, 5));
+
   // Create an embedded canvas and add to the main frame, centered in x and y
   // and with 30 pixel margins all around
   fCanvas = new TRootEmbeddedCanvas("Canvas", this, 800, 600);
-  fLcan = new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 10, 10, 10, 10);
-  AddFrame(fCanvas, fLcan);
+  fLHint = new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 10, 10, 10, 10);
+  AddFrame(fCanvas, fLHint);
   fCanvas->GetCanvas()->SetBorderMode(0);
   fCanvas->GetCanvas()->SetGrid();
-  // fCanvas->Connect("ProcessedEvent(Event_t*)", "TUserInterface", this,
-  //                  "CanvasEvent()");
   fCanvas->GetCanvas()->Connect("ProcessedEvent(Int_t, Int_t, Int_t, TObject*)",
                                 "TUserInterface", this, "CanvasEvent()");
 
-  fHframe1 = new TGHorizontalFrame(this, 0, 0, 0);
+  fHFrame = new TGHorizontalFrame(this, 0, 0, 0);
+  fHFrame->Resize(800, 25);
   fVFrame = new TGVerticalFrame(this, 0, 0, 0);
-  fHslider1 = new TGTripleHSlider(fVFrame, 800, kDoubleScaleBoth, HSId1,
-                                  kHorizontalFrame, GetDefaultFrameBackground(),
-                                  kFALSE, kFALSE, kFALSE, kFALSE);
-  fHslider1->Connect("PointerPositionChanged()", "TUserInterface", this,
-                     "DoSlider()");
-  fHslider1->Connect("PositionChanged()", "TUserInterface", this, "DoSlider()");
-  fHslider1->SetRange(0.0, 500.0);
   // fVFrame->Resize(800, 25);
 
-  fHframe2 = new TGHorizontalFrame(this, 0, 0, 0);
-  fHframe2->SetName("Hframe2");
+  fHFrame->SetName("Hframe2");
+  TGLabel *bgLabel = new TGLabel(fHFrame, "Back Ground");
+  fHFrame->AddFrame(
+      bgLabel, new TGLayoutHints(kLHintsCenterY | kLHintsLeft, 2, 2, 2, 2));
+
   fLeftSlider =
-      new TGVSlider(fHframe2, 134, kSlider1 | kScaleBoth, -1, kVerticalFrame);
+      new TGVSlider(fHFrame, 134, kSlider1 | kScaleBoth, -1, kVerticalFrame);
   fLeftSlider->SetName("LeftSlider");
   fLeftSlider->Connect("PositionChanged(Int_t)", "TUserInterface", this,
                        "DoLeftSlider()");
-  fHframe2->AddFrame(fLeftSlider,
-                     new TGLayoutHints(kLHintsLeft | kLHintsTop, 2, 2, 2, 2));
+  fHFrame->AddFrame(fLeftSlider,
+                    new TGLayoutHints(kLHintsLeft | kLHintsTop, 2, 2, 2, 2));
 
-  fPeakSlider = new TGVSlider(fHframe2, 134, kSlider1 | kScaleDownRight, -1,
+  fPeakSlider = new TGVSlider(fHFrame, 134, kSlider1 | kScaleDownRight, -1,
                               kVerticalFrame);
   fPeakSlider->SetName("PeakSlider");
   fPeakSlider->Connect("PositionChanged(Int_t)", "TUserInterface", this,
                        "DoPeakSlider()");
-  fHframe2->AddFrame(fPeakSlider,
-                     new TGLayoutHints(kLHintsLeft | kLHintsTop, 2, 2, 2, 2));
+  fHFrame->AddFrame(fPeakSlider,
+                    new TGLayoutHints(kLHintsLeft | kLHintsTop, 2, 2, 2, 2));
 
   fRightSlider =
-      new TGVSlider(fHframe2, 134, kSlider1 | kScaleBoth, -1, kVerticalFrame);
+      new TGVSlider(fHFrame, 134, kSlider1 | kScaleBoth, -1, kVerticalFrame);
   fRightSlider->SetName("RightSlider");
   fRightSlider->Connect("PositionChanged(Int_t)", "TUserInterface", this,
                         "DoRightSlider()");
-  fHframe2->AddFrame(fRightSlider,
-                     new TGLayoutHints(kLHintsLeft | kLHintsTop, 2, 2, 2, 2));
-
-  fSigmaSlider =
-      new TGHSlider(fVFrame, 134, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
-  fSigmaSlider->SetName("SigmaSlider");
-  fSigmaSlider->Connect("PositionChanged(Int_t)", "TUserInterface", this,
-                        "DoSigmaSlider()");
-  fVFrame->AddFrame(fSigmaSlider,
-                    new TGLayoutHints(kLHintsExpandX | kLHintsNormal));
+  fHFrame->AddFrame(fRightSlider,
+                    new TGLayoutHints(kLHintsLeft | kLHintsTop, 2, 2, 2, 2));
 
   fMeanSlider =
-      new TGHSlider(fVFrame, 134, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
+      new TGHSlider(fVFrame, 800, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
   fMeanSlider->SetName("MeanSlider");
   fMeanSlider->Connect("PositionChanged(Int_t)", "TUserInterface", this,
                        "DoMeanSlider()");
+  TGLabel *meanLabel = new TGLabel(fVFrame, "Mean");
+  fVFrame->AddFrame(meanLabel,
+                    new TGLayoutHints(kLHintsCenterX | kLHintsNormal));
   fVFrame->AddFrame(fMeanSlider,
                     new TGLayoutHints(kLHintsExpandX | kLHintsNormal));
 
+  fSigmaSlider =
+      new TGHSlider(fVFrame, 800, kSlider1 | kScaleBoth, -1, kHorizontalFrame);
+  fSigmaSlider->SetName("SigmaSlider");
+  fSigmaSlider->Connect("PositionChanged(Int_t)", "TUserInterface", this,
+                        "DoSigmaSlider()");
+  TGLabel *sigmaLabel = new TGLabel(fVFrame, "Sigma");
+  fVFrame->AddFrame(sigmaLabel,
+                    new TGLayoutHints(kLHintsCenterX | kLHintsNormal));
+  fVFrame->AddFrame(fSigmaSlider,
+                    new TGLayoutHints(kLHintsExpandX | kLHintsNormal));
+
   fFitButton =
-      new TGTextButton(fHframe2, "Fit", -1, TGTextButton::GetDefaultGC()(),
+      new TGTextButton(fHFrame, "Fit", -1, TGTextButton::GetDefaultGC()(),
                        TGTextButton::GetDefaultFontStruct(), kRaisedFrame);
   fFitButton->SetMargins(10, 10, 5, 5);
   fFitButton->Connect("Clicked()", "TUserInterface", this, "DoFit()");
-  fHframe2->AddFrame(fFitButton, new TGLayoutHints(kLHintsNormal));
+  // fVFrame->AddFrame(fMeanSlider, new TGLayoutHints(kLHintsNormal));
+  // fVFrame->AddFrame(fSigmaSlider, new TGLayoutHints(kLHintsNormal));
 
   fUploadButton =
-      new TGTextButton(fHframe2, "Upload", -1, TGTextButton::GetDefaultGC()(),
+      new TGTextButton(fHFrame, "Upload", -1, TGTextButton::GetDefaultGC()(),
                        TGTextButton::GetDefaultFontStruct(), kRaisedFrame);
   fUploadButton->SetMargins(10, 10, 5, 5);
   fUploadButton->Connect("Clicked()", "TUserInterface", this, "DoUpload()");
-  fHframe2->AddFrame(fUploadButton, new TGLayoutHints(kLHintsNormal));
 
-  // //--- layout for buttons: top align, equally expand horizontally
-  fBly = new TGLayoutHints(kLHintsLeft | kLHintsExpandX, 5, 5, 5, 5);
-  //
-  // //--- layout for the frame: place at bottom, right aligned
-  // fBfly1 = new TGLayoutHints(kLHintsTop | kLHintsCenterX, 5, 5, 5, 5);
-  // fBfly2 = new TGLayoutHints(kLHintsTop | kLHintsLeft, 5, 5, 5, 5);
-  // fBfly3 = new TGLayoutHints(kLHintsTop | kLHintsRight, 5, 5, 5, 5);
-  //
-  // fHframe0->AddFrame(fCheck1, fBfly2);
-  // fHframe0->AddFrame(fCheck2, fBfly2);
-  fVFrame->AddFrame(fHslider1, fBly);
-  fVFrame->AddFrame(fMeanSlider, new TGLayoutHints(kLHintsNormal));
-  fVFrame->AddFrame(fSigmaSlider, new TGLayoutHints(kLHintsNormal));
-  // fHframe2->AddFrame(fTeh1, fBfly2);
-  // fHframe2->AddFrame(fTeh2, fBfly1);
-  // fHframe2->AddFrame(fTeh3, fBfly3);
-  //
-  // AddFrame(fHframe0, fBly);
-  // AddFrame(fVFrame, fBly);
+  fHFrame->AddFrame(fUploadButton,
+                    new TGLayoutHints(kLHintsBottom | kLHintsRight));
+  fHFrame->AddFrame(fFitButton,
+                    new TGLayoutHints(kLHintsBottom | kLHintsRight));
+
   AddFrame(fVFrame, new TGLayoutHints(kLHintsNormal));
-  AddFrame(fHframe2,
-           new TGLayoutHints(kLHintsExpandX | kLHintsExpandY, 1, 1, 1, 1));
-  // AddFrame(fHframe2, fBly);
-  //
-  // Set main frame name, map sub windows (buttons), initialize layout
-  // algorithm via Resize() and map main frame
+  AddFrame(fHFrame, new TGLayoutHints(kLHintsExpandX | kLHintsNormal));
+
   SetWindowName("Fitter for GBS");
   MapSubwindows();
   Resize(GetDefaultSize());
   MapWindow();
-  //
-  // fFitFcn = new TF1("fFitFcn", "TMath::LogNormal(x, [0], [1], [2])", 0, 5);
-  // fFitFcn->SetRange(0.0, 2.5);
-  // fFitFcn->SetParameters(1.0, 0, 1);
-  // fFitFcn->SetMinimum(1.0e-3);
-  // fFitFcn->SetMaximum(10.0);
-  // fFitFcn->SetLineColor(kRed);
-  // fFitFcn->SetLineWidth(1);
-  // fFitFcn->Draw();
-  //
-  fHslider1->SetPosition(0., 500.);
-  fHslider1->SetPointerPosition(250.);
-  //
-  // sprintf(buf, "%.3f", fHslider1->GetMinPosition());
-  // fTbh1->Clear();
-  // fTbh1->AddText(0, buf);
-  // sprintf(buf, "%.3f", fHslider1->GetPointerPosition());
-  // fTbh2->Clear();
-  // fTbh2->AddText(0, buf);
-  // sprintf(buf, "%.3f", fHslider1->GetMaxPosition());
-  // fTbh3->Clear();
-  // fTbh3->AddText(0, buf);
 }
 
 //______________________________________________________________________________
 TUserInterface::~TUserInterface()
 {
   // Clean up
-
   Cleanup();
+
+  delete fBrowser;
 
   delete fGaussian;
   delete fBackground;
@@ -220,54 +198,7 @@ TUserInterface::~TUserInterface()
 void TUserInterface::CloseWindow()
 {
   // Called when window is closed via the window manager.
-
   delete this;
-}
-
-//______________________________________________________________________________
-void TUserInterface::DoText(const char * /*text*/)
-{
-  // Handle text entry widgets.
-
-  TGTextEntry *te = (TGTextEntry *)gTQSender;
-  Int_t id = te->WidgetId();
-
-  switch (id) {
-    case HId1:
-      fHslider1->SetPosition(atof(fTbh1->GetString()),
-                             fHslider1->GetMaxPosition());
-      break;
-    case HId2:
-      fHslider1->SetPointerPosition(atof(fTbh2->GetString()));
-      break;
-    case HId3:
-      fHslider1->SetPosition(fHslider1->GetMinPosition(),
-                             atof(fTbh1->GetString()));
-      break;
-    default:
-      break;
-  }
-  fCanvas->GetCanvas()->Modified();
-  fCanvas->GetCanvas()->Update();
-}
-
-void TUserInterface::HandleButtons()
-{
-  // Handle different buttons.
-
-  TGButton *btn = (TGButton *)gTQSender;
-  Int_t id = btn->WidgetId();
-
-  switch (id) {
-    case HCId1:
-      fHslider1->SetConstrained(fCheck1->GetState());
-      break;
-    case HCId2:
-      fHslider1->SetRelative(fCheck2->GetState());
-      break;
-    default:
-      break;
-  }
 }
 
 void TUserInterface::CanvasEvent()
@@ -275,22 +206,14 @@ void TUserInterface::CanvasEvent()
   // This function just check the histogram ploted in the canvas
   // If the histogram is not same as fHis, replace
   // This call all events now.  I have no idea about other signal.
-  std::cout << "CanvasEvent" << std::endl;
   auto list = fCanvas->GetCanvas()->GetListOfPrimitives();
-  std::cout << list->GetSize() << std::endl;
   for (auto &&obj : *list) {
     if (obj->InheritsFrom("TH1")) {
       auto his = (TH1 *)fCanvas->GetCanvas()->GetPrimitive(obj->GetName());
       if (fHis == nullptr || fHis != his) {
         fHis = his;
-        fHslider1->SetRange(fHis->GetXaxis()->GetBinCenter(1),
-                            fHis->GetXaxis()->GetBinCenter(fHis->GetNbinsX()));
-        fHslider1->SetPosition(
-            fHis->GetXaxis()->GetBinCenter(1),
-            fHis->GetXaxis()->GetBinCenter(fHis->GetNbinsX()));
 
         fMean = fHis->GetXaxis()->GetBinCenter(fHis->GetMaximumBin());
-        // fHslider1->SetPointerPosition(fMean);
 
         fPeak = fHis->GetMaximum();
         fLeftSlider->SetRange(0, fPeak);
@@ -308,18 +231,6 @@ void TUserInterface::CanvasEvent()
       }
     }
   }
-
-  // if (fHis) UpdateGraph();
-}
-
-void TUserInterface::DoSlider()
-{
-  if (fHis) {
-    fHis->GetXaxis()->SetRange(
-        fHis->GetXaxis()->FindBin(fHslider1->GetMinPosition() - 0.05),
-        fHis->GetXaxis()->FindBin(fHslider1->GetMaxPosition()));
-    UpdateGraph();
-  }
 }
 
 void TUserInterface::DoPeakSlider()
@@ -327,7 +238,6 @@ void TUserInterface::DoPeakSlider()
   auto pos = fPeakSlider->GetPosition();
   auto max = fHis->GetMaximum();
   fPeak = max - pos;
-  std::cout << "Peak" << std::endl;
   UpdateGraph();
 }
 
@@ -351,7 +261,6 @@ void TUserInterface::DoSigmaSlider()
 {
   auto pos = fSigmaSlider->GetPosition();
   fSigma = pos / fSliderFac;
-  std::cout << "Sigma" << std::endl;
   UpdateGraph();
 }
 
@@ -359,7 +268,6 @@ void TUserInterface::DoMeanSlider()
 {
   auto pos = fMeanSlider->GetPosition();
   fMean = pos / fSliderFac;
-  std::cout << "Mean" << std::endl;
   UpdateGraph();
 }
 
@@ -410,20 +318,21 @@ void TUserInterface::DoUpload()
             << "FWHM: " << FWHM << std::endl;
 
   // Do image save
+  // I expect nobody do at the same time
+  // But such the expection is done by only the fool
   auto fileName = TString(Form("fit-%ld.jpg", time(nullptr)));
-  auto fullPath = "/home/aogaki/Study/MEAN/image-upload-04-finished/backend/images/" + fileName;
+  auto fullPath = "/home/aogaki/DAQ/Outputs/images/" + fileName;
   fCanvas->GetCanvas()->Print(fullPath, "jpg");
 
   // Connect to Mongo DB
-  mongocxx::instance *inst{};
-  mongocxx::client conn{mongocxx::uri{"mongodb://localhost/node-angular?retryWrites=true"}};
-  //mongocxx::client conn{mongocxx::uri{}};
+  mongocxx::client conn{mongocxx::uri{"mongodb://192.168.161.73/"}};
+  // mongocxx::client conn{mongocxx::uri{}};
 
   auto collection = conn["node-angular"]["posts"];
 
   bsoncxx::builder::stream::document buf{};
-  buf << "title" << Form("%2.5f", fMean) << "content" << Form("%2.5f", FWHM)
-      << "imagePath"
+  buf << "title" << Form("%2.3f", fMean / 1000.) << "content"
+      << Form("%2.3f", FWHM / 1000.) << "imagePath"
       << Form("http://192.168.161.73:3000/images/%s", fileName.Data());
   collection.insert_one(buf.view());
   buf.clear();
@@ -432,18 +341,10 @@ void TUserInterface::DoUpload()
   for (auto &&doc : cursor) {
     std::cout << bsoncxx::to_json(doc) << std::endl;
   }
-
-  // Quick hack
-  // mongocxx::instance can be zombie
-  // I need to do new and delete in this function.
-  // Have to think what is happen!!!!!!!!!!!!
-  delete inst;
 }
 
 void TUserInterface::UpdateGraph()
 {
-  std::cout << "hit" << std::endl;
-  std::cout << fPeak << "\t" << fMean << "\t" << fSigma << std::endl;
   fCanvas->GetCanvas()->cd();
   if (fHis) fHis->Draw();
 
@@ -457,5 +358,20 @@ void TUserInterface::UpdateGraph()
 
   fCanvas->GetCanvas()->Modified();
   fCanvas->GetCanvas()->Update();
-  std::cout << "end" << std::endl;
+}
+
+void TUserInterface::HandleMenu(Int_t menuID)
+{
+  MenuMessages id = static_cast<MenuMessages>(menuID);
+  switch (id) {
+    case MenuMessages::BROWSE:
+      fBrowser = new TBrowser();
+      break;
+    case MenuMessages::EXIT:
+      Cleanup();
+      gSystem->Exit(0);  // Too rude?
+      break;
+    default:
+      break;
+  }
 }
